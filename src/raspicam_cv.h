@@ -39,6 +39,23 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define RaspiCam_CV_H
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
+
+#if defined(_MSC_VER)
+    #define __FUNCNAME__ __FUNCTION__
+#else
+    #define __FUNCNAME__ __PRETTY_FUNCTION__
+#endif
+
+#ifdef DEBUG
+#define LOG() \
+    fprintf(stdout, "[DEBUG] In \"%s\": at %s:%d\n",__FUNCNAME__, \
+__FILE__, __LINE__);
+#else
+#define LOG() \
+    {};
+
+#endif
+
 namespace raspicam {
 
     namespace _private{

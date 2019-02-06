@@ -41,6 +41,24 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mmal/util/mmal_util.h"
 #include "mmal/util/mmal_util_params.h"
 #include "mmal/util/mmal_default_components.h"
+
+
+#if defined(_MSC_VER)
+    #define __FUNCNAME__ __FUNCTION__
+#else
+    #define __FUNCNAME__ __PRETTY_FUNCTION__
+#endif
+
+#ifdef DEBUG
+#define LOG() \
+    fprintf(stdout, "[DEBUG] In \"%s\": at %s:%d\n",__FUNCNAME__, \
+__FILE__, __LINE__);
+#else
+#define LOG() \
+    {};
+
+#endif
+
 using namespace std;
 namespace raspicam {
     namespace _private{
@@ -51,6 +69,7 @@ namespace raspicam {
 
 
         Private_Impl::Private_Impl() {
+            LOG();
             camera_video_port = NULL;
 //             camera_still_port = NULL;
             _isOpened=false;
@@ -65,12 +84,14 @@ namespace raspicam {
         }
 
         void Private_Impl::setDefaultStateParams() {
-
+LOG();
             // Default everything to zero
             memset ( &State, 0, sizeof ( RASPIVID_STATE ) );
             State.framerate 		= 10;
-            State.width 			= 1280;      // use a multiple of 320 (640, 1280)
-            State.height 			= 960;		// use a multiple of 240 (480, 960)
+            State.width 			= 320;      // use a multiple of 320 (640,
+            // 1280)
+            State.height 			= 240;		// use a multiple of 240
+            // (480, 960)
             State.sharpness = 0;
             State.contrast = 0;
             State.brightness = 50;
@@ -97,12 +118,15 @@ namespace raspicam {
 
         }
         bool  Private_Impl::open ( bool StartCapture ) {
+            LOG();
             if ( _isOpened ) return false; //already opened
 // create camera
+            LOG();
             if ( ! create_camera_component ( &State ) ) {
                 cerr<<__func__<<" Failed to create camera component"<<__FILE__<<" "<<__LINE__<<endl;
                 return false;
             }
+            LOG();
             commitParameters();
             camera_video_port   = State.camera_component->output[MMAL_CAMERA_VIDEO_PORT];
             callback_data.pstate = &State;
@@ -238,27 +262,36 @@ namespace raspicam {
             }
         }
         MMAL_COMPONENT_T *Private_Impl::create_camera_component ( RASPIVID_STATE *state ) {
+
+            LOG();
             MMAL_COMPONENT_T *camera = 0;
             MMAL_ES_FORMAT_T *format;
             MMAL_PORT_T  *video_port = NULL;
 
             MMAL_STATUS_T status;
+
+            LOG();
             /* Create the component */
             status = mmal_component_create ( MMAL_COMPONENT_DEFAULT_CAMERA, &camera );
 
+            LOG();
             if ( status != MMAL_SUCCESS ) {
                 cerr<< ( "Failed to create camera component" );
                 return 0;
             }
 
+            LOG();
+            assert(camera);//FIXME TODO here is a crash (don't work on PC?)
             if ( !camera->output_num ) {
                 cerr<< ( "Camera doesn't have output ports" );
                 mmal_component_destroy ( camera );
                 return 0;
             }
 
+            LOG();
             video_port = camera->output[MMAL_CAMERA_VIDEO_PORT];
 
+            LOG();
             //set sensor mode
             if ( state->sensor_mode != 0 && mmal_port_parameter_set_uint32 ( camera->control,
                                                     MMAL_PARAMETER_CAMERA_CUSTOM_SENSOR_CONFIG,
@@ -267,10 +300,12 @@ namespace raspicam {
                 cerr << __func__ << ": Failed to set sensmode.";
             }
 
+            LOG();
             _rgb_bgr_fixed = !(mmal_util_rgb_order_fixed(video_port));
 
             //  set up the camera configuration
 
+            LOG();
             MMAL_PARAMETER_CAMERA_CONFIG_T cam_config;
             cam_config.hdr.id=MMAL_PARAMETER_CAMERA_CONFIG;
             cam_config.hdr.size=sizeof ( cam_config );
@@ -286,10 +321,12 @@ namespace raspicam {
             cam_config.use_stc_timestamp = MMAL_PARAM_TIMESTAMP_MODE_RESET_STC;
             mmal_port_parameter_set ( camera->control, &cam_config.hdr );
 
+            LOG();
             MMAL_PARAMETER_CHANGE_EVENT_REQUEST_T change_event_request =
                     {{MMAL_PARAMETER_CHANGE_EVENT_REQUEST, sizeof(MMAL_PARAMETER_CHANGE_EVENT_REQUEST_T)},
                      MMAL_PARAMETER_CAMERA_SETTINGS, 1};
 
+            LOG();
             status = mmal_port_parameter_set(camera->control, &change_event_request.hdr);
             if ( status != MMAL_SUCCESS )
             {
@@ -298,6 +335,7 @@ namespace raspicam {
                 return 0;
             }
 
+            LOG();
             // Enable the camera, and tell it its control callback function
             status = mmal_port_enable(camera->control, camera_control_callback);
 
@@ -308,6 +346,7 @@ namespace raspicam {
                 return 0;
             }
 
+            LOG();
             // Set the encode format on the video  port
 
             format = video_port->format;
@@ -322,6 +361,7 @@ namespace raspicam {
             format->es->video.frame_rate.num = state->framerate;
             format->es->video.frame_rate.den = VIDEO_FRAME_RATE_DEN;
 
+            LOG();
             status = mmal_port_format_commit ( video_port );
             if ( status ) {
                 cerr<< ( "camera video format couldn't be set" );
@@ -329,6 +369,7 @@ namespace raspicam {
                 return 0;
             }
 
+            LOG();
             // PR : plug the callback to the video port
             status = mmal_port_enable ( video_port,video_buffer_callback );
             if ( status ) {
@@ -337,12 +378,14 @@ namespace raspicam {
                 return 0;
             }
 
+            LOG();
             // Ensure there are enough buffers to avoid dropping frames
             if ( video_port->buffer_num < VIDEO_OUTPUT_BUFFERS_NUM )
                 video_port->buffer_num = VIDEO_OUTPUT_BUFFERS_NUM;
 
 
 
+            LOG();
             //PR : create pool of message on video port
             MMAL_POOL_T *pool;
             video_port->buffer_size = video_port->buffer_size_recommended;
@@ -354,6 +397,7 @@ namespace raspicam {
             state->video_pool = pool;
 
 
+            LOG();
             /* Enable component */
             status = mmal_component_enable ( camera );
 
@@ -363,8 +407,10 @@ namespace raspicam {
                 return 0;
             }
 
+            LOG();
             state->camera_component = camera;//this needs to be before set_all_parameters
 
+            LOG();
             return camera;
         }
 

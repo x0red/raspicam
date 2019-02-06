@@ -42,7 +42,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "scaler.h"
 namespace raspicam {
     RaspiCam_Cv::RaspiCam_Cv() {
+        LOG();
         _impl=new _private::Private_Impl();
+        LOG();
 	set(cv::CAP_PROP_FORMAT,CV_8UC3);
  
     }
@@ -53,6 +55,8 @@ namespace raspicam {
     /** Open  capturing device for video capturing
      */
     bool RaspiCam_Cv::open ( void ) {
+        LOG();
+        assert(_impl);
         return _impl->open();
     }
     /**
