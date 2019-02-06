@@ -264,7 +264,8 @@ LOG();
         MMAL_COMPONENT_T *Private_Impl::create_camera_component ( RASPIVID_STATE *state ) {
 
             LOG();
-            MMAL_COMPONENT_T *camera = 0;
+            //MMAL_COMPONENT_T *camera = 0;//Michael. only a try
+            MMAL_COMPONENT_T *camera = new MMAL_COMPONENT_T;
             MMAL_ES_FORMAT_T *format;
             MMAL_PORT_T  *video_port = NULL;
 
